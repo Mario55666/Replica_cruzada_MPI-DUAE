@@ -1,0 +1,79 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Réplica cruzada AB/BA y cronograma de control — MPI-DUAE",
+    "quality_profile": "showcase",
+    "legend": {
+      "mode": "auto",
+      "entries": {
+        "security": { "label": "Punto de medición" },
+        "backend": { "label": "Ejecución del periodo" },
+        "messagebus": { "label": "Resultado posible" },
+        "database": { "label": "Registro institucional" }
+      }
+    },
+    "views": [
+      { "id": "vision-general", "label": "Semestre completo", "focus": ["t1", "p1_ab", "t2", "p2_ab", "t3", "s18"], "note": "Sigue el semestre de 18 semanas desde la línea de base hasta el registro de permanencia." },
+      { "id": "crossover-ab-ba", "label": "Crossover AB vs. BA", "focus": ["t1", "p1_ab", "p1_ba", "t2", "p2_ab", "p2_ba", "t3"], "note": "Compara cómo cada secuencia recibe las dos condiciones en orden invertido." },
+      { "id": "puerta-cerrada", "label": "Contraste principal (T3)", "focus": ["t3", "resp_he1he2", "s18", "resp_he3"], "note": "El procedimiento de puerta cerrada de HE1/HE2 y el análisis exploratorio HE3." },
+      { "id": "riesgos-respuestas", "label": "Riesgos y respuestas", "focus": ["t2", "resp_atricion", "t3", "resp_he1he2", "s18", "resp_he3"], "note": "Las tres preguntas que el avance del estudio puede responder de forma distinta." }
+    ]
+  },
+  "lanes": [
+    { "id": "cronograma", "label": "Cronograma (mediciones)" },
+    { "id": "secuencia_ab", "label": "Secciones · secuencia AB" },
+    { "id": "secuencia_ba", "label": "Secciones · secuencia BA" },
+    { "id": "respuestas", "label": "Resultados posibles según avance", "variant": "exception" }
+  ],
+  "phases": [
+    { "id": "ph_s1", "label": "Semana 1", "fromCol": 0, "toCol": 0 },
+    { "id": "ph_p1", "label": "Semanas 2–8 · Periodo 1", "fromCol": 1, "toCol": 1, "variant": "emphasis" },
+    { "id": "ph_s9", "label": "Semana 9", "fromCol": 2, "toCol": 2 },
+    { "id": "ph_p2", "label": "Semanas 10–16 · Periodo 2", "fromCol": 3, "toCol": 3, "variant": "emphasis" },
+    { "id": "ph_s17", "label": "Semana 17", "fromCol": 4, "toCol": 4 },
+    { "id": "ph_s18", "label": "Semana 18", "fromCol": 5, "toCol": 5, "variant": "dashed" }
+  ],
+  "groups": [
+    { "id": "grp_ab", "label": "Réplica cruzada · secuencia AB", "lane": "secuencia_ab", "fromCol": 1, "toCol": 3, "variant": "emphasis" },
+    { "id": "grp_ba", "label": "Réplica cruzada · secuencia BA", "lane": "secuencia_ba", "fromCol": 1, "toCol": 3, "variant": "emphasis" },
+    { "id": "grp_resp", "label": "Qué puede responder cada fecha", "lane": "respuestas", "fromCol": 2, "toCol": 5, "variant": "security" }
+  ],
+  "mainPath": ["t1", "p1_ab", "t2", "p2_ab", "t3", "s18"],
+  "nodes": [
+    { "id": "t1", "lane": "cronograma", "col": 0, "type": "security", "label": "T1 · Línea de base", "sublabel": "TTCT inicial + PSSM + rendim. previo", "width": 180 },
+    { "id": "t2", "lane": "cronograma", "col": 2, "type": "security", "label": "T2 · Medición intermedia", "sublabel": "cierre del Periodo 1", "tag": "gate", "width": 180 },
+    { "id": "t3", "lane": "cronograma", "col": 4, "type": "security", "label": "T3 · Medición final", "sublabel": "cierre del Periodo 2", "tag": "gate", "width": 180 },
+    { "id": "s18", "lane": "cronograma", "col": 5, "type": "database", "label": "S18 · Permanencia", "sublabel": "retiro formal, registro IESP DYC", "width": 180 },
+
+    { "id": "p1_ab", "lane": "secuencia_ab", "col": 1, "type": "backend", "label": "Periodo 1 · Condición A", "sublabel": "MPI-DUAE, 7 sesiones", "width": 172 },
+    { "id": "p2_ab", "lane": "secuencia_ab", "col": 3, "type": "backend", "label": "Periodo 2 · Condición B", "sublabel": "Comparación, 7 sesiones", "width": 172 },
+
+    { "id": "p1_ba", "lane": "secuencia_ba", "col": 1, "type": "backend", "label": "Periodo 1 · Condición B", "sublabel": "Comparación, 7 sesiones", "width": 172 },
+    { "id": "p2_ba", "lane": "secuencia_ba", "col": 3, "type": "backend", "label": "Periodo 2 · Condición A", "sublabel": "MPI-DUAE, 7 sesiones", "width": 172 },
+
+    { "id": "resp_atricion", "lane": "respuestas", "col": 2, "type": "messagebus", "label": "¿Atrición temprana?", "sublabel": "N real por debajo de 120", "tag": "usa: Curva de potencia vs. N", "width": 190 },
+    { "id": "resp_he1he2", "lane": "respuestas", "col": 4, "type": "messagebus", "label": "¿HE1/HE2 significativas?", "sublabel": "puerta cerrada + Bonferroni α/5", "tag": "usa: Tamaños de efecto", "width": 190 },
+    { "id": "resp_he3", "lane": "respuestas", "col": 5, "type": "messagebus", "label": "HE3 exploratoria", "sublabel": "PSSM → permanencia, razón de momios", "tag": "usa: HE3 · Regresión logística", "width": 190 }
+  ],
+  "edges": [
+    { "id": "e_t1_p1ab", "from": "t1", "to": "p1_ab", "variant": "emphasis" },
+    { "id": "e_t1_p1ba", "from": "t1", "to": "p1_ba", "variant": "dashed", "role": "branch", "label": "secuencia BA" },
+    { "id": "e_p1ab_t2", "from": "p1_ab", "to": "t2", "variant": "emphasis" },
+    { "id": "e_p1ba_t2", "from": "p1_ba", "to": "t2", "variant": "dashed", "role": "branch" },
+    { "id": "e_t2_p2ab", "from": "t2", "to": "p2_ab", "variant": "emphasis" },
+    { "id": "e_t2_p2ba", "from": "t2", "to": "p2_ba", "variant": "dashed", "role": "branch" },
+    { "id": "e_p2ab_t3", "from": "p2_ab", "to": "t3", "variant": "emphasis" },
+    { "id": "e_p2ba_t3", "from": "p2_ba", "to": "t3", "variant": "dashed", "role": "branch" },
+    { "id": "e_t3_s18", "from": "t3", "to": "s18", "variant": "emphasis" },
+
+    { "id": "e_t2_resp1", "from": "t2", "to": "resp_atricion", "variant": "security", "role": "branch" },
+    { "id": "e_t3_resp2", "from": "t3", "to": "resp_he1he2", "variant": "security", "role": "branch" },
+    { "id": "e_s18_resp3", "from": "s18", "to": "resp_he3", "variant": "security", "role": "branch" }
+  ],
+  "cards": [
+    { "dot": "rose", "title": "Alcance del diseño", "items": [
+      "Contraste intrasujeto (Tabla 8); sin asignación aleatoria — diferencias asociadas, no causales; HE3 sin factor de condición"
+    ]}
+  ]
+}

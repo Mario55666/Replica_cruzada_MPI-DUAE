@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Simulación Monte Carlo MPI-DUAE</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1" integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ" crossorigin="anonymous"></script>
+<style>
+:root{
+  --bg-primary:#f4f5f7; --bg-card:#ffffff; --bg-header:#1a1a2e;
+  --text-primary:#212529; --text-secondary:#6c757d; --text-on-dark:#ffffff;
+  --c-A:#3b528b; --c-B:#5dc963; --c-accent:#21908c; --c-warn:#c44e52; --c-neutral:#9aa0a6;
+  --positive:#2e8b3f; --negative:#c44e52;
+  --gap:16px; --radius:10px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg-primary);color:var(--text-primary);line-height:1.5;}
+.dashboard-container{max-width:1440px;margin:0 auto;padding:var(--gap);}
+.dashboard-header{background:var(--bg-header);color:var(--text-on-dark);padding:20px 24px;border-radius:var(--radius);margin-bottom:var(--gap);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
+.dashboard-header h1{font-size:19px;font-weight:600;}
+.dashboard-header p{font-size:12.5px;color:rgba(255,255,255,.65);margin-top:4px;}
+.filters{display:flex;gap:16px;align-items:center;flex-wrap:wrap;}
+.filter-group{display:flex;align-items:center;gap:8px;}
+.filter-group label{font-size:12px;color:rgba(255,255,255,.75);}
+.filter-group select{padding:6px 10px;border:1px solid rgba(255,255,255,.25);border-radius:6px;background:rgba(255,255,255,.08);color:var(--text-on-dark);font-size:13px;}
+.filter-group select option{background:var(--bg-header);color:var(--text-on-dark);}
+.toggle{display:flex;align-items:center;gap:8px;font-size:12.5px;color:rgba(255,255,255,.85);cursor:pointer;user-select:none;}
+.toggle input{width:16px;height:16px;accent-color:var(--c-accent);cursor:pointer;}
+
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:var(--gap);margin-bottom:var(--gap);}
+.kpi-card{background:var(--bg-card);border-radius:var(--radius);padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.08);}
+.kpi-label{font-size:11.5px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
+.kpi-value{font-size:24px;font-weight:700;color:var(--text-primary);margin-bottom:2px;}
+.kpi-note{font-size:12px;font-weight:500;color:var(--text-secondary);}
+.kpi-note.positive{color:var(--positive);} .kpi-note.negative{color:var(--negative);}
+
+.chart-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(430px,1fr));gap:var(--gap);margin-bottom:var(--gap);}
+.chart-container{background:var(--bg-card);border-radius:var(--radius);padding:18px 20px;box-shadow:0 1px 3px rgba(0,0,0,.08);}
+.chart-container h3{font-size:13.5px;font-weight:600;color:var(--text-primary);margin-bottom:2px;}
+.chart-container .sub{font-size:11.5px;color:var(--text-secondary);margin-bottom:12px;}
+.chart-container canvas{max-height:300px;}
+
+.section-card{background:var(--bg-card);border-radius:var(--radius);padding:18px 20px;box-shadow:0 1px 3px rgba(0,0,0,.08);margin-bottom:var(--gap);overflow-x:auto;}
+.section-card h3{font-size:13.5px;font-weight:600;margin-bottom:2px;}
+.section-card .sub{font-size:11.5px;color:var(--text-secondary);margin-bottom:14px;}
+
+/* Heatmap */
+table.heatmap{border-collapse:collapse;font-size:12px;margin:0 auto;}
+table.heatmap th{padding:6px 8px;font-weight:600;color:var(--text-secondary);text-align:center;font-size:11px;}
+table.heatmap td{width:52px;height:30px;text-align:center;border:1px solid #fff;font-weight:600;cursor:default;}
+table.heatmap td.star{outline:3px solid #1a1a2e;outline-offset:-3px;}
+.heatmap-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;}
+.heatmap-legend{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--text-secondary);}
+.legend-bar{width:180px;height:10px;border-radius:5px;background:linear-gradient(90deg,#440154,#3b528b,#21908c,#5dc963,#fde725);}
+
+/* Tabs */
+.tabs{display:flex;gap:4px;margin-bottom:14px;border-bottom:1px solid #e9ecef;flex-wrap:wrap;}
+.tab-btn{padding:8px 14px;font-size:12.5px;font-weight:600;color:var(--text-secondary);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;}
+.tab-btn.active{color:var(--c-accent);border-bottom-color:var(--c-accent);}
+.tab-panel{display:none;}
+.tab-panel.active{display:block;}
+
+.data-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+.data-table thead th{text-align:left;padding:9px 10px;border-bottom:2px solid #dee2e6;color:var(--text-secondary);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;user-select:none;cursor:pointer;}
+.data-table thead th:hover{color:var(--text-primary);background:#f8f9fa;}
+.data-table tbody td{padding:8px 10px;border-bottom:1px solid #f0f0f0;white-space:nowrap;}
+.data-table tbody tr:hover{background:#f8f9fa;}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;}
+.badge.sig{background:#e4f5e8;color:var(--positive);}
+.badge.nosig{background:#f1f1f1;color:var(--text-secondary);}
+
+.dashboard-footer{text-align:center;font-size:11.5px;color:var(--text-secondary);padding:16px 0 4px;}
+
+/* Aviso metodológico */
+.notice{display:flex;gap:12px;background:#fff8e6;border:1px solid #f0d792;border-radius:var(--radius);padding:14px 18px;margin-bottom:var(--gap);font-size:12.5px;color:#6b5410;align-items:flex-start;}
+.notice .notice-icon{font-size:18px;line-height:1;}
+.notice b{color:#4a3a0a;}
+
+/* Ficha de la investigación */
+.research-card{background:var(--bg-card);border-radius:var(--radius);padding:22px 24px;box-shadow:0 1px 3px rgba(0,0,0,.08);margin-bottom:var(--gap);}
+.research-card h2{font-size:16px;font-weight:700;color:var(--text-primary);margin-bottom:4px;}
+.research-card .authors{font-size:12px;color:var(--text-secondary);margin-bottom:16px;}
+.research-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:22px;}
+.research-block h4{font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--c-accent);margin-bottom:8px;}
+.research-block p{font-size:13px;color:var(--text-primary);margin-bottom:10px;}
+.research-block ul{margin:0 0 10px 18px;font-size:12.5px;color:var(--text-primary);}
+.research-block ul li{margin-bottom:4px;}
+.hyp-item{border-left:3px solid var(--c-accent);background:#f8fbfb;border-radius:0 6px 6px 0;padding:8px 12px;margin-bottom:8px;font-size:12.5px;}
+.hyp-item b{color:var(--c-accent);}
+.hyp-item.sub{margin-left:16px;border-left-color:var(--c-neutral);background:#f8f9fa;font-size:12px;}
+@media (max-width:900px){ .research-grid{grid-template-columns:1fr;} }
+
+[id^="sec-"]{scroll-margin-top:96px;}
+
+/* Barra de navegación interna (ancla todas las secciones entre sí) */
+.page-nav{position:sticky;top:8px;z-index:20;display:flex;flex-wrap:wrap;gap:6px;background:#ffffffee;backdrop-filter:blur(4px);border:1px solid #e3e5e8;border-radius:999px;padding:8px 12px;margin-bottom:var(--gap);box-shadow:0 2px 8px rgba(0,0,0,.06);}
+.page-nav a{font-size:11.5px;font-weight:600;color:var(--text-secondary);text-decoration:none;padding:5px 11px;border-radius:999px;white-space:nowrap;}
+.page-nav a:hover{background:#eef1f3;color:var(--text-primary);}
+.page-nav a.diagram-link{color:#fff;background:var(--c-accent);}
+.page-nav a.diagram-link:hover{background:#1a7a76;}
+
+/* Diagrama interactivo embebido (archify) */
+.diagram-frame-wrap{border:1px solid #e3e5e8;border-radius:10px;overflow:hidden;background:#0b0b16;}
+.diagram-frame-wrap iframe{display:block;width:100%;height:900px;border:0;}
+.diagram-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
+.diagram-links a{font-size:11.5px;font-weight:600;color:var(--c-accent);background:#eef6fa;border:1px solid #c9e3ee;padding:5px 12px;border-radius:999px;text-decoration:none;}
+.diagram-links a:hover{background:#dcedf5;}
+
+/* Nota fija de aclaración (p. ej. categoría de referencia) */
+.ref-note{background:#eef6fa;border:1px solid #c9e3ee;border-radius:8px;padding:10px 14px;font-size:12px;color:#2b5266;margin-bottom:14px;line-height:1.55;}
+.ref-note code{background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px;font-size:11px;}
+
+/* Explicaciones desplegables por gráfico */
+details.info-box{margin-top:12px;border-top:1px dashed #e3e5e8;padding-top:10px;}
+details.info-box summary{cursor:pointer;font-size:12px;font-weight:600;color:var(--c-accent);list-style:none;user-select:none;}
+details.info-box summary::-webkit-details-marker{display:none;}
+details.info-box summary::before{content:"▸ "; display:inline-block; transition:transform .15s;}
+details.info-box[open] summary::before{transform:rotate(90deg);}
+details.info-box .info-body{font-size:12.5px;color:var(--text-secondary);margin-top:8px;line-height:1.6;}
+details.info-box .info-body b{color:var(--text-primary);}
+details.info-box .info-body p{margin-bottom:8px;}
+details.info-box .info-body p.impact{background:#f3f0fb;border-left:3px solid #8172b3;padding:8px 10px;border-radius:0 6px 6px 0;color:#3a3357;}
+details.info-box .info-body p.impact b{color:#5a4b9c;}
+
+/* Cronograma de control: diagrama de Gantt real (Chart.js) */
+.gantt-wrap{background:#fbfbfc;border:1px solid #eceef0;border-radius:8px;padding:12px 14px 4px;margin:14px 0 8px;height:380px;box-sizing:border-box;position:relative;}
+.gantt-wrap canvas{cursor:pointer;}
+.timeline-caption{font-size:11px;color:var(--text-secondary);text-align:center;margin-bottom:16px;}
+.checkpoint-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;}
+.checkpoint-card{background:#f8f9fa;border:1px solid #eceef0;border-radius:8px;padding:12px 14px;}
+.checkpoint-card .wk-badge{display:inline-block;background:#1a1a2e;color:#fff;font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:10px;margin-bottom:8px;}
+.checkpoint-card h5{font-size:12.5px;font-weight:700;margin-bottom:6px;color:var(--text-primary);}
+.checkpoint-card p{font-size:11.8px;color:var(--text-secondary);margin-bottom:6px;line-height:1.5;}
+.checkpoint-card p b{color:var(--text-primary);}
+.checkpoint-card .use-panel{font-size:11px;color:var(--c-accent);font-weight:600;}
+
+@media (max-width:768px){
+  .dashboard-header{flex-direction:column;align-items:flex-start;}
+  .kpi-row{grid-template-columns:repeat(2,1fr);}
+  .chart-row{grid-template-columns:1fr;}
+  .filters{flex-direction:column;align-items:flex-start;}
+}
+@media print{
+  body{background:#fff;} .dashboard-container{max-width:none;} .filters{display:none;}
+  .chart-container,.section-card{break-inside:avoid;} .kpi-card{border:1px solid #dee2e6;box-shadow:none;}
+}
+</style>
+</head>
+<body>
+<div class="dashboard-container">
+
+  <header class="dashboard-header">
+    <div>
+      <h1>Simulación Monte Carlo — MPI-DUAE</h1>
+      <p>Réplica cruzada contrabalanceada AB/BA · N=120 · ρ=0.50 · d=0.30 · α=.05 · B=10 000 iteraciones · semilla 2026</p>
+    </div>
+    <div class="filters">
+      <div class="filter-group">
+        <label for="filter-var">Resaltar variable</label>
+        <select id="filter-var" onchange="dash.setHighlight(this.value)">
+          <option value="all">Todas</option>
+        </select>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="toggle-sig" onchange="dash.toggleSigOnly(this.checked)">
+        Solo diferencias significativas (Bonferroni .01)
+      </label>
+    </div>
+  </header>
+
+  <nav class="page-nav">
+    <a href="#sec-investigacion">Investigación</a>
+    <a href="#sec-cronograma">Cronograma</a>
+    <a href="#sec-diagrama" class="diagram-link">◆ Diagrama interactivo</a>
+    <a href="#sec-power">Potencia</a>
+    <a href="#sec-efectos">Tamaños de efecto</a>
+    <a href="#sec-medias">Medias</a>
+    <a href="#sec-robustez">Robustez</a>
+    <a href="#sec-heatmap">Sensibilidad ρ×d</a>
+    <a href="#sec-tablas">Tablas</a>
+  </nav>
+
+  <div class="notice">
+    <div class="notice-icon">⚠️</div>
+    <div>
+      <b>Qué es esto y qué no es:</b> los datos de este panel son <b>simulados</b> bajo los supuestos del diseño
+      (d = 0.30, ρ = 0.50, N = 120), no observaciones reales de estudiantes del IESP DYC. Su función es
+      <b>validar la capacidad del diseño metodológico</b> para detectar el efecto esperado — no anticipar
+      resultados de la tesis. Los patrones "significativos" que aparecen abajo ilustran cómo se leería el
+      análisis bajo esos supuestos, no un hallazgo empírico.
+    </div>
+  </div>
+
+  <section class="research-card" id="sec-investigacion">
+    <h2>Modelo Pedagógico Integrado DUA-Experiencial (MPI-DUAE)</h2>
+    <div class="authors">Mg. Mario Rafael Quiroz Martínez · Programa de Doctorado en Educación · IESP DYC, Lima Metropolitana, 2026-2027</div>
+    <div class="research-grid">
+      <div class="research-block">
+        <h4>Pregunta de investigación</h4>
+        <p>¿Qué diferencias en el pensamiento creativo divergente y el sentido de pertenencia inclusiva se
+        asocian con el MPI-DUAE, frente a la condición de comparación, en ingresantes de primer semestre a
+        programas de Diseño y Comunicación de un instituto público de educación superior no universitaria
+        de Lima Metropolitana?</p>
+        <h4>Diseño metodológico</h4>
+        <ul>
+          <li>Cuasiexperimental de <b>réplica cruzada contrabalanceada</b> (crossover AB/BA), intrasujeto: cada estudiante es su propio control.</li>
+          <li>6 secciones (3 con secuencia AB, 3 con BA), 4 programas de estudio como factor de bloqueo.</li>
+          <li>Covariables: línea de base de cada VD y rendimiento académico previo. Control: periodo, secuencia (arrastre) y forma del TTCT.</li>
+          <li>N = 120 casos completos, de 145 plazas totales · ρ = 0.50 · d esperado = 0.30 · α = .05 · potencia objetivo = .80 (G*Power 3.1).</li>
+        </ul>
+      </div>
+      <div class="research-block">
+        <h4>Sistema de hipótesis</h4>
+        <div class="hyp-item"><b>HG —</b> Existen diferencias significativas en el pensamiento creativo divergente y en el sentido de pertenencia inclusiva asociadas a la exposición al MPI-DUAE, controlando línea base, rendimiento previo, periodo, secuencia y programa.</div>
+        <div class="hyp-item"><b>HE1 —</b> Diferencias intrasujeto en el conjunto de las 5 dimensiones del TTCT Figural (contraste conjunto, Hotelling T²).</div>
+        <div class="hyp-item sub">HE1a-e: fluidez, originalidad, elaboración, abstracción de títulos, resistencia al cierre — solo se examinan si HE1 es significativa, con Bonferroni α/5 = .01.</div>
+        <div class="hyp-item"><b>HE2 —</b> Diferencia intrasujeto en el puntaje global del PSSM, asociada a la exposición al MPI-DUAE.</div>
+        <div class="hyp-item"><b>HE3 (exploratoria) —</b> Asociación entre PSSM y permanencia académica, vía regresión logística binaria (sin factor de condición).</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section-card" id="sec-cronograma">
+    <h3>Cronograma de control del estudio</h3>
+    <div class="sub">Semestre de ejecución 2026-2027 · 18 semanas · 14 sesiones (2 unidades de 7 sesiones, 90 min c/u) · mediciones en semanas 1, 9 y 17, registro de permanencia en semana 18 (2.1.1, 2.3.1.2)</div>
+    <div class="gantt-wrap">
+      <canvas id="chart-gantt"></canvas>
+    </div>
+    <div class="timeline-caption">Eje horizontal = semana del semestre. Clic en cualquier barra o hito para ir directo al panel correspondiente. El orden de A y B dentro de cada periodo se invierte entre secciones con secuencia AB y BA (Tabla 8) — las 4 fechas de medición son las mismas para las 6 secciones.</div>
+
+    <div class="checkpoint-grid">
+      <div class="checkpoint-card">
+        <div class="wk-badge">SEMANA 1 · T1</div>
+        <h5>Línea de base</h5>
+        <p>Se aplican TTCT Figural (forma inicial) + PSSM + se registra rendimiento académico previo.</p>
+        <p><b>Qué responde la simulación aquí:</b> las pruebas de supuestos (Shapiro-Wilk, Levene) y la
+        verificación de la estructura factorial del TTCT (2.2.3.3) — pestaña <b>"Supuestos"</b>.</p>
+        <p class="use-panel">↳ Panel: Tablas de detalle → Supuestos</p>
+      </div>
+      <div class="checkpoint-card">
+        <div class="wk-badge">SEMANAS 2–8 Y 10–16</div>
+        <h5>Implementación (Periodo 1 y 2)</h5>
+        <p>Observación estructurada de fidelidad (RFI-MPI-DUAE) en ambas condiciones, en las 6 secciones.</p>
+        <p><b>Qué responde la simulación aquí:</b> el panel de robustez anticipa que la heterocedasticidad
+        entre docentes/secciones es la amenaza más seria a la potencia — vigilarla durante estas semanas.</p>
+        <p class="use-panel">↳ Panel: Robustez ante sesgos</p>
+      </div>
+      <div class="checkpoint-card">
+        <div class="wk-badge">SEMANA 9 · T2</div>
+        <h5>Medición intermedia</h5>
+        <p>Cierre del Periodo 1: TTCT (forma alterna) + PSSM. Punto de control de atrición temprana.</p>
+        <p><b>Qué responde la simulación aquí:</b> con el N real acumulado hasta esta fecha, usar la curva
+        de potencia para verificar si aún se sostiene por encima de 0.80.</p>
+        <p class="use-panel">↳ Panel: Curva de potencia vs. N</p>
+      </div>
+      <div class="checkpoint-card">
+        <div class="wk-badge">SEMANA 17 · T3</div>
+        <h5>Medición final</h5>
+        <p>Cierre del Periodo 2: tercera y última aplicación de TTCT + PSSM. Aquí se ejecuta el contraste
+        principal.</p>
+        <p><b>Qué responde la simulación aquí:</b> el patrón exacto de análisis — HE1 ómnibus primero, luego
+        HE1a-e con Bonferroni si aplica, y HE2 — es el que muestran el forest plot y la tabla de efectos.</p>
+        <p class="use-panel">↳ Paneles: Tamaños de efecto (gráfico y tabla)</p>
+      </div>
+      <div class="checkpoint-card">
+        <div class="wk-badge">SEMANA 18</div>
+        <h5>Registro de permanencia</h5>
+        <p>Dato institucional de retiro formal al cierre del semestre (IESP DYC).</p>
+        <p><b>Qué responde la simulación aquí:</b> el formato de reporte de HE3 (exploratoria, 2.3.2.4) —
+        regresión logística con PSSM como predictor, OR e IC95%.</p>
+        <p class="use-panel">↳ Panel: HE3 · Regresión logística</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section-card" id="sec-diagrama">
+    <h3>Diagrama interactivo: diseño crossover AB/BA + cronograma</h3>
+    <div class="sub">Mismo contenido de arriba en formato explorable — 4 vistas guiadas, zoom, búsqueda y trazado de rutas. Generado con Archify a partir del mismo diseño metodológico (2.3.1.2, 2.3.3).</div>
+    <div class="diagram-frame-wrap">
+      <iframe src="Diagramas/crossover_cronograma_mpi_duae.html" title="Diagrama crossover AB/BA y cronograma de control"></iframe>
+    </div>
+    <div class="diagram-links">
+      <span style="font-size:11.5px;color:var(--text-secondary);align-self:center;">Este diagrama enlaza con:</span>
+      <a href="#sec-power">↳ Curva de potencia (nodo "¿Atrición temprana?")</a>
+      <a href="#sec-efectos">↳ Tamaños de efecto (nodo "¿HE1/HE2 significativas?")</a>
+      <a href="#sec-tablas">↳ HE3 · Regresión logística (nodo "HE3 exploratoria")</a>
+    </div>
+  </section>
+
+  <section class="kpi-row" id="kpi-row"></section>
+
+  <section class="chart-row">
+    <div class="chart-container" id="sec-power">
+      <h3>Curva de potencia empírica vs. N</h3>
+      <div class="sub">d = 0.30, ρ = 0.50, α = 0.05 — línea punteada: potencia objetivo 0.80</div>
+      <canvas id="chart-power"></canvas>
+      <details class="info-box">
+        <summary>Función y lectura de este gráfico</summary>
+        <div class="info-body">
+          <p><b>Función:</b> verifica por simulación el cálculo a priori hecho con G*Power 3.1 — traduce
+          "¿120 casos alcanzan?" en una curva continua de potencia contra el tamaño de muestra.</p>
+          <p><b>Lectura del resultado:</b> la potencia cruza 0.80 alrededor de N≈85-90, muy por debajo del
+          N=120 planificado. Con N=120 la potencia empírica es <b>90.2%</b> (punto rojo), un margen de ~10
+          puntos sobre el objetivo — incluso antes de descontar la deserción esperada.</p>
+          <p class="impact"><b>Impacto en la tesis doctoral:</b> es la evidencia cuantitativa que sostiene la
+          <b>viabilidad poblacional (1.7)</b> y el análisis de potencia a priori de <b>2.3.1.2</b> — el
+          argumento para responder, ante un jurado, "¿por qué 120 y no más?".</p>
+        </div>
+      </details>
+    </div>
+    <div class="chart-container" id="sec-efectos">
+      <h3>Tamaños de efecto (d<sub>z</sub> de Cohen)</h3>
+      <div class="sub">5 dimensiones TTCT + PSSM — pase el cursor para ver IC 95% y p</div>
+      <canvas id="chart-effects"></canvas>
+      <details class="info-box">
+        <summary>Función y lectura de este gráfico</summary>
+        <div class="info-body">
+          <p><b>Función:</b> es el equivalente visual del <b>procedimiento de puerta cerrada</b> (HE1 ómnibus
+          primero; solo si es significativa se examinan HE1a-e con Bonferroni). Resume las 6 pruebas
+          intrasujeto en un solo panel.</p>
+          <p><b>Lectura del resultado:</b> HE1 ómnibus (Hotelling T²) resultó significativa —
+          F(5,115)=8.836, p&lt;.0001 — lo que habilita mirar las subhipótesis. Con Bonferroni α/5=.01,
+          <b>Elaboración, Abstracción de títulos y Resistencia al cierre</b> superan el umbral; <b>Fluidez y
+          Originalidad no</b> (sus IC95% cruzan el cero). PSSM es significativo a α=.05 ordinario
+          (dz=0.217, p=.019). Los d por dimensión son un supuesto de la simulación, no un valor que la tesis
+          fije a priori.</p>
+          <p class="impact"><b>Impacto en la tesis doctoral:</b> es el formato exacto en que deberás reportar
+          <b>HE1 y HE1a-e en el capítulo de resultados</b> — una tabla/figura de tamaños de efecto con
+          d<sub>z</sub>, IC95% y significancia Bonferroni, siguiendo el procedimiento de puerta cerrada que
+          fijaste en <b>2.3.2.2</b>.</p>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <section class="chart-row">
+    <div class="chart-container" id="sec-medias">
+      <h3>Media por condición</h3>
+      <div class="sub">A = MPI-DUAE, B = condición de comparación (puntajes estandarizados, z)</div>
+      <canvas id="chart-means"></canvas>
+      <details class="info-box">
+        <summary>Función y lectura de este gráfico</summary>
+        <div class="info-body">
+          <p><b>Función:</b> resumen rápido de dirección y magnitud — equivalente simplificado del
+          violin+boxplot+puntos que exige la plantilla original (útil para una vista general; el detalle de
+          la forma de cada distribución está en la figura d) del script Python).</p>
+          <p><b>Lectura del resultado:</b> en las 6 variables, la condición A (MPI-DUAE) muestra una media
+          más alta que B — coherente con el supuesto de que el efecto (d) se definió con signo positivo a
+          favor de A. La brecha es mayor en Elaboración y Resistencia al cierre, y casi nula en PSSM.</p>
+          <p class="impact"><b>Impacto en la tesis doctoral:</b> sirve de borrador del gráfico de comparación
+          de grupos que acompañará el <b>capítulo de resultados (HE1/HE2)</b>; ayuda a decidir, antes de
+          tener datos reales, qué escala de eje y qué nivel de detalle comunican mejor una diferencia del
+          tamaño que tu diseño puede detectar (d≈0.30).</p>
+        </div>
+      </details>
+    </div>
+    <div class="chart-container" id="sec-robustez">
+      <h3>Robustez ante sesgos (potencia empírica)</h3>
+      <div class="sub">Escenarios de sensibilidad, B = 3 000 iteraciones cada uno</div>
+      <canvas id="chart-robustness"></canvas>
+      <details class="info-box">
+        <summary>Función y lectura de este gráfico</summary>
+        <div class="info-body">
+          <p><b>Función:</b> simula qué pasa si se violan los supuestos del modelo — outliers,
+          heterocedasticidad, y la deserción real observada en el IESP DYC (10.7%, 2023-2025) — para
+          anticipar amenazas a la potencia antes de recolectar datos.</p>
+          <p><b>Lectura del resultado:</b> la <b>heterocedasticidad es la amenaza más seria</b> (potencia
+          0.83→0.62), más que la deserción (0.80) o los outliers (0.71). Esto justifica reportar la prueba
+          de Levene junto con Shapiro-Wilk: si los datos reales muestran heterocedasticidad, la potencia
+          efectiva del estudio podría ser menor a la planeada.</p>
+          <p class="impact"><b>Impacto en la tesis doctoral:</b> es el argumento anticipado para la sección
+          de <b>amenazas a la validez (2.3.3)</b> — en particular para los puntos de "arrastre entre
+          periodos" y "atrición", que ya identificas como riesgos; esta simulación cuantifica cuánto le
+          costaría a la potencia cada uno si se materializa.</p>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <section class="section-card" id="sec-heatmap">
+    <h3>Sensibilidad de la potencia: ρ (correlación intrasujeto) × d (Cohen)</h3>
+    <div class="sub">N = 120, α = 0.05 — el recuadro marcado es el valor real usado en la tesis (ρ = 0.50, d = 0.30)</div>
+    <div class="heatmap-wrap">
+      <table class="heatmap" id="heatmap"></table>
+      <div class="heatmap-legend">
+        <span>0.0</span><div class="legend-bar"></div><span>1.0 (potencia)</span>
+      </div>
+    </div>
+    <details class="info-box">
+      <summary>Función y lectura de este mapa</summary>
+      <div class="info-body">
+        <p><b>Función:</b> responde "¿qué tan frágil es N=120 si ρ o d están mal calibrados?" — un análisis
+        de sensibilidad que fortalece la justificación metodológica ante la pregunta "¿y si el efecto real
+        es más chico de lo esperado?".</p>
+        <p><b>Lectura del resultado:</b> la celda marcada (ρ=0.50, d=0.30) da 0.91. Si el efecto real fuera
+        d=0.20, la potencia cae a ~0.60 (vulnerable). Pero si ρ es más alto de lo esperado —plausible,
+        porque es el mismo instrumento y el mismo estudiante en las dos mediciones— la potencia se recupera
+        rápido incluso con d chico. Esto respalda la decisión de usar un diseño intrasujeto en vez de
+        comparar secciones distintas.</p>
+        <p class="impact"><b>Impacto en la tesis doctoral:</b> sostiene la justificación metodológica de
+        <b>1.7 y 2.3.1.2</b> sobre por qué el diseño de réplica cruzada (y no un contraste entre secciones)
+        fue la decisión correcta dada la escasez de unidades de asignación (6 secciones, 2 únicas en su
+        programa) — el mismo argumento que ya usas contra un posible cuestionamiento metodológico del
+        jurado.</p>
+      </div>
+    </details>
+  </section>
+
+  <section class="section-card" id="sec-tablas">
+    <h3>Tablas de detalle</h3>
+    <div class="sub">Encabezados ordenables — el toggle "solo significativas" del encabezado filtra la pestaña de tamaños de efecto</div>
+    <div class="tabs" id="tabs">
+      <button class="tab-btn active" data-tab="tab-efectos">Tamaños de efecto</button>
+      <button class="tab-btn" data-tab="tab-desc">Descriptivos</button>
+      <button class="tab-btn" data-tab="tab-supuestos">Supuestos</button>
+      <button class="tab-btn" data-tab="tab-he3">HE3 · Regresión logística</button>
+    </div>
+    <div class="tab-panel active" id="tab-efectos">
+      <div id="table-efectos"></div>
+      <details class="info-box">
+        <summary>Función y lectura de esta tabla</summary>
+        <div class="info-body">
+          <p><b>Función:</b> versión numérica exacta del forest plot — d<sub>z</sub>, IC 95% y p para las 5
+          dimensiones del TTCT y el PSSM, con la marca de significancia Bonferroni ya aplicada.</p>
+          <p><b>Lectura:</b> 4 de 6 variables (Elaboración, Abstracción de títulos, Resistencia al cierre y
+          PSSM) muestran diferencia significativa bajo los supuestos simulados; Fluidez y Originalidad no.</p>
+          <p class="impact"><b>Impacto en la tesis doctoral:</b> es la plantilla numérica exacta de la tabla
+          de resultados de <b>HE1a-e y HE2</b> — copia esta estructura de columnas cuando reemplaces los
+          datos simulados por los reales.</p>
+        </div>
+      </details>
+    </div>
+    <div class="tab-panel" id="tab-desc">
+      <div id="table-desc"></div>
+      <details class="info-box">
+        <summary>Función y lectura de esta tabla</summary>
+        <div class="info-body">
+          <p><b>Función:</b> estadística descriptiva completa (media, DE, mediana, RIC, asimetría, curtosis)
+          por condición — el primer paso de cualquier reporte de resultados, previo a las pruebas
+          inferenciales.</p>
+          <p><b>Lectura:</b> los valores de asimetría y curtosis cercanos a 0 en ambas condiciones son
+          consistentes con datos aproximadamente normales, lo que respalda el uso de pruebas paramétricas
+          (t pareada, modelo mixto) en vez de sus equivalentes no paramétricos.</p>
+          <p class="impact"><b>Impacto en la tesis doctoral:</b> es el primer cuadro que va en el
+          <b>capítulo de resultados</b>, antes de cualquier prueba inferencial — y el que usarás en la
+          Semana 1 (línea de base) para decidir si los datos reales se comportan como aquí se supuso.</p>
+        </div>
+      </details>
+    </div>
+    <div class="tab-panel" id="tab-supuestos">
+      <div id="table-supuestos"></div>
+      <details class="info-box">
+        <summary>Función y lectura de esta tabla</summary>
+        <div class="info-body">
+          <p><b>Función:</b> verificación formal de los supuestos que habilitan las pruebas paramétricas:
+          Shapiro-Wilk (normalidad por condición) y Levene (homocedasticidad entre condiciones).</p>
+          <p><b>Lectura:</b> todas las variables cumplen normalidad (p &gt; .05 en Shapiro-Wilk). Solo
+          <b>Elaboración</b> muestra heterocedasticidad (Levene p = .011) — coherente con la caída de
+          potencia observada para ese escenario en el panel de robustez.</p>
+          <p class="impact"><b>Impacto en la tesis doctoral:</b> es el respaldo estadístico formal para
+          decidir, en <b>2.2.3.3</b>, si el análisis confirmatorio se hace con pruebas paramétricas
+          estándar o si conviene reportar errores robustos para las dimensiones con heterocedasticidad.</p>
+        </div>
+      </details>
+    </div>
+    <div class="tab-panel" id="tab-he3">
+      <div class="ref-note">
+        <b>Comunicación Audiovisual</b> es la <b>categoría de referencia</b> del factor "programa" (elegida
+        alfabéticamente por <code>patsy</code>/<code>statsmodels</code>): no falta de la tabla, su efecto
+        está absorbido en el <b>Intercepto</b>. Los otros 3 programas se interpretan <i>en comparación con
+        Comunicación Audiovisual</i> — p. ej., Diseño Publicitario tiene OR=2.829 frente a Comunicación
+        Audiovisual, no frente a un valor neutro.
+      </div>
+      <div id="table-he3"></div>
+      <details class="info-box">
+        <summary>Función y lectura de esta tabla</summary>
+        <div class="info-body">
+          <p><b>Función:</b> ilustra cómo se reportaría HE3 (análisis exploratorio, sin factor de condición,
+          2.3.2.4): razones de momios (OR) con IC 95% para permanencia académica.</p>
+          <p><b>Por qué solo aparecen 3 de los 4 programas:</b> una variable categórica de k niveles se
+          representa con k-1 variables dummy en la regresión; el nivel restante (aquí, Comunicación
+          Audiovisual) es la referencia y queda dentro del Intercepto. Esto es una convención de
+          codificación (treatment coding), no una omisión de datos — los 4 programas sí participaron en la
+          simulación (ver la pestaña "Descriptivos", que sí desglosa las 6 variables sin agrupar por
+          programa).</p>
+          <p><b>Lectura:</b> el PSSM promedio es un predictor significativo de permanencia (OR=3.21,
+          p=.001) — por cada DE adicional en pertenencia percibida, la probabilidad de permanecer se
+          multiplica por ~3.2, controlando rendimiento previo y programa. Consistente con la cadena teórica
+          de Hausmann et al. (2007, 2009): pertenencia → compromiso → permanencia. Ningún programa muestra
+          diferencia significativa frente a Comunicación Audiovisual (todos p > .25), es decir, la
+          permanencia no varía de forma detectable solo por pertenecer a uno u otro programa una vez que se
+          controla el PSSM.</p>
+          <p class="impact"><b>Impacto en la tesis doctoral:</b> es el análisis que responde al objetivo
+          específico de <b>2.3.2.4 (HE3)</b> en la Semana 18 — repórtalo siempre como asociación exploratoria
+          preliminar, nunca como efecto causal del MPI-DUAE sobre la permanencia (el diseño de réplica cruzada
+          no lo permite, ver 2.3.3).</p>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <footer class="dashboard-footer">
+    Datos generados por <code>simulacion_mpi_duae.py</code> (semilla fija 2026) · instantánea de la simulación, no datos en vivo ·
+    HE1 ómnibus (Hotelling T²): F(5,115)=8.836, p&lt;.0001 · HE2 (PSSM): t=2.373, p=.019
+  </footer>
+
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Datos embebidos (resultados de simulacion_mpi_duae.py, resultados/*.csv)
+// ---------------------------------------------------------------------------
+const DATA = {"descriptivos": [{"variable": "fluidez", "condicion": "A", "n": 120, "media": 0.214, "de": 1.086, "mediana": 0.264, "ric": 1.398, "asimetria": -0.042, "curtosis": 0.008}, {"variable": "fluidez", "condicion": "B", "n": 120, "media": 0.045, "de": 1.022, "mediana": 0.024, "ric": 1.451, "asimetria": -0.012, "curtosis": -0.352}, {"variable": "originalidad", "condicion": "A", "n": 120, "media": 0.229, "de": 1.218, "mediana": 0.271, "ric": 1.417, "asimetria": -0.015, "curtosis": 0.584}, {"variable": "originalidad", "condicion": "B", "n": 120, "media": 0.043, "de": 1.035, "mediana": 0.129, "ric": 1.237, "asimetria": -0.149, "curtosis": 0.336}, {"variable": "elaboracion", "condicion": "A", "n": 120, "media": 0.32, "de": 0.954, "mediana": 0.314, "ric": 1.281, "asimetria": 0.064, "curtosis": -0.078}, {"variable": "elaboracion", "condicion": "B", "n": 120, "media": -0.052, "de": 1.177, "mediana": 0.022, "ric": 1.764, "asimetria": -0.248, "curtosis": -0.283}, {"variable": "abstraccion_titulos", "condicion": "A", "n": 120, "media": 0.184, "de": 1.068, "mediana": 0.144, "ric": 1.282, "asimetria": -0.211, "curtosis": 1.08}, {"variable": "abstraccion_titulos", "condicion": "B", "n": 120, "media": -0.052, "de": 0.964, "mediana": -0.081, "ric": 1.252, "asimetria": -0.07, "curtosis": 0.174}, {"variable": "resistencia_cierre", "condicion": "A", "n": 120, "media": 0.245, "de": 1.07, "mediana": 0.29, "ric": 1.377, "asimetria": -0.052, "curtosis": -0.184}, {"variable": "resistencia_cierre", "condicion": "B", "n": 120, "media": -0.119, "de": 1.179, "mediana": -0.128, "ric": 1.436, "asimetria": -0.081, "curtosis": 0.081}, {"variable": "pssm_global", "condicion": "A", "n": 120, "media": 0.197, "de": 1.084, "mediana": 0.169, "ric": 1.336, "asimetria": -0.057, "curtosis": 0.021}, {"variable": "pssm_global", "condicion": "B", "n": 120, "media": -0.013, "de": 1.086, "mediana": -0.051, "ric": 1.208, "asimetria": 0.052, "curtosis": 0.374}], "supuestos": [{"variable": "fluidez", "shapiro_W_A": 0.9948, "shapiro_p_A": 0.939, "shapiro_W_B": 0.9931, "shapiro_p_B": 0.8192, "levene_F": 0.405, "levene_p": 0.5251}, {"variable": "originalidad", "shapiro_W_A": 0.9879, "shapiro_p_A": 0.368, "shapiro_W_B": 0.9922, "shapiro_p_B": 0.7419, "levene_F": 1.1585, "levene_p": 0.2829}, {"variable": "elaboracion", "shapiro_W_A": 0.9962, "shapiro_p_A": 0.9885, "shapiro_W_B": 0.9908, "shapiro_p_B": 0.6052, "levene_F": 6.6019, "levene_p": 0.0108}, {"variable": "abstraccion_titulos", "shapiro_W_A": 0.9871, "shapiro_p_A": 0.314, "shapiro_W_B": 0.9934, "shapiro_p_B": 0.8453, "levene_F": 0.5232, "levene_p": 0.4702}, {"variable": "resistencia_cierre", "shapiro_W_A": 0.9912, "shapiro_p_A": 0.6428, "shapiro_W_B": 0.9914, "shapiro_p_B": 0.6627, "levene_F": 0.6874, "levene_p": 0.4079}, {"variable": "pssm_global", "shapiro_W_A": 0.994, "shapiro_p_A": 0.8899, "shapiro_W_B": 0.9911, "shapiro_p_B": 0.6311, "levene_F": 0.1001, "levene_p": 0.752}], "efectos": [{"variable": "fluidez", "dz": 0.169, "ic95_lo": -0.011, "ic95_hi": 0.35, "p": 0.066, "significativo_bonferroni_.01": false}, {"variable": "originalidad", "dz": 0.186, "ic95_lo": 0.006, "ic95_hi": 0.367, "p": 0.044, "significativo_bonferroni_.01": false}, {"variable": "elaboracion", "dz": 0.356, "ic95_lo": 0.171, "ic95_hi": 0.54, "p": 0.0, "significativo_bonferroni_.01": true}, {"variable": "abstraccion_titulos", "dz": 0.269, "ic95_lo": 0.087, "ic95_hi": 0.451, "p": 0.004, "significativo_bonferroni_.01": true}, {"variable": "resistencia_cierre", "dz": 0.357, "ic95_lo": 0.173, "ic95_hi": 0.542, "p": 0.0, "significativo_bonferroni_.01": true}, {"variable": "pssm_global", "dz": 0.217, "ic95_lo": 0.036, "ic95_hi": 0.398, "p": 0.019, "significativo_bonferroni_.01": true}], "he3": [{"termino": "Intercept", "coef": 1.7096, "OR": 5.527, "IC95_lo": 1.4164, "IC95_hi": 21.567, "p": 0.0139}, {"termino": "C(programa)[T.Diseno Publicitario]", "coef": 1.0399, "OR": 2.8291, "IC95_lo": 0.468, "IC95_hi": 17.1018, "p": 0.2573}, {"termino": "C(programa)[T.Diseno de Interiores]", "coef": 0.6487, "OR": 1.913, "IC95_lo": 0.3487, "IC95_hi": 10.4939, "p": 0.4551}, {"termino": "C(programa)[T.Diseno de Modas]", "coef": -0.1461, "OR": 0.8641, "IC95_lo": 0.1471, "IC95_hi": 5.0741, "p": 0.8715}, {"termino": "pssm_prom", "coef": 1.1662, "OR": 3.2098, "IC95_lo": 1.5913, "IC95_hi": 6.4744, "p": 0.0011}, {"termino": "rendimiento_previo", "coef": 0.1757, "OR": 1.1921, "IC95_lo": 0.6354, "IC95_hi": 2.2363, "p": 0.5841}], "potencia_n": [{"N": 60, "potencia": 0.6293}, {"N": 70, "potencia": 0.6957}, {"N": 80, "potencia": 0.7537}, {"N": 90, "potencia": 0.806}, {"N": 100, "potencia": 0.8357}, {"N": 110, "potencia": 0.8807}, {"N": 120, "potencia": 0.902}, {"N": 130, "potencia": 0.9277}, {"N": 140, "potencia": 0.948}, {"N": 150, "potencia": 0.952}], "sensibilidad": [{"rho": 0.3, "d": 0.2, "potencia": 0.452}, {"rho": 0.3, "d": 0.25, "potencia": 0.632}, {"rho": 0.3, "d": 0.3, "potencia": 0.7907}, {"rho": 0.3, "d": 0.35, "potencia": 0.8963}, {"rho": 0.3, "d": 0.4, "potencia": 0.959}, {"rho": 0.3, "d": 0.45, "potencia": 0.9853}, {"rho": 0.3, "d": 0.5, "potencia": 0.9957}, {"rho": 0.35, "d": 0.2, "potencia": 0.4703}, {"rho": 0.35, "d": 0.25, "potencia": 0.6547}, {"rho": 0.35, "d": 0.3, "potencia": 0.8117}, {"rho": 0.35, "d": 0.35, "potencia": 0.919}, {"rho": 0.35, "d": 0.4, "potencia": 0.961}, {"rho": 0.35, "d": 0.45, "potencia": 0.99}, {"rho": 0.35, "d": 0.5, "potencia": 0.9977}, {"rho": 0.4, "d": 0.2, "potencia": 0.512}, {"rho": 0.4, "d": 0.25, "potencia": 0.6987}, {"rho": 0.4, "d": 0.3, "potencia": 0.8473}, {"rho": 0.4, "d": 0.35, "potencia": 0.9343}, {"rho": 0.4, "d": 0.4, "potencia": 0.9753}, {"rho": 0.4, "d": 0.45, "potencia": 0.9953}, {"rho": 0.4, "d": 0.5, "potencia": 0.9987}, {"rho": 0.45, "d": 0.2, "potencia": 0.542}, {"rho": 0.45, "d": 0.25, "potencia": 0.728}, {"rho": 0.45, "d": 0.3, "potencia": 0.8707}, {"rho": 0.45, "d": 0.35, "potencia": 0.9547}, {"rho": 0.45, "d": 0.4, "potencia": 0.9877}, {"rho": 0.45, "d": 0.45, "potencia": 0.9963}, {"rho": 0.45, "d": 0.5, "potencia": 0.9997}, {"rho": 0.5, "d": 0.2, "potencia": 0.597}, {"rho": 0.5, "d": 0.25, "potencia": 0.781}, {"rho": 0.5, "d": 0.3, "potencia": 0.9053}, {"rho": 0.5, "d": 0.35, "potencia": 0.9727}, {"rho": 0.5, "d": 0.4, "potencia": 0.992}, {"rho": 0.5, "d": 0.45, "potencia": 0.9987}, {"rho": 0.5, "d": 0.5, "potencia": 1.0}, {"rho": 0.55, "d": 0.2, "potencia": 0.615}, {"rho": 0.55, "d": 0.25, "potencia": 0.8287}, {"rho": 0.55, "d": 0.3, "potencia": 0.938}, {"rho": 0.55, "d": 0.35, "potencia": 0.9773}, {"rho": 0.55, "d": 0.4, "potencia": 0.9937}, {"rho": 0.55, "d": 0.45, "potencia": 0.9993}, {"rho": 0.55, "d": 0.5, "potencia": 1.0}, {"rho": 0.6, "d": 0.2, "potencia": 0.6707}, {"rho": 0.6, "d": 0.25, "potencia": 0.8507}, {"rho": 0.6, "d": 0.3, "potencia": 0.9533}, {"rho": 0.6, "d": 0.35, "potencia": 0.9913}, {"rho": 0.6, "d": 0.4, "potencia": 0.999}, {"rho": 0.6, "d": 0.45, "potencia": 1.0}, {"rho": 0.6, "d": 0.5, "potencia": 1.0}, {"rho": 0.65, "d": 0.2, "potencia": 0.7323}, {"rho": 0.65, "d": 0.25, "potencia": 0.8993}, {"rho": 0.65, "d": 0.3, "potencia": 0.977}, {"rho": 0.65, "d": 0.35, "potencia": 0.996}, {"rho": 0.65, "d": 0.4, "potencia": 0.9993}, {"rho": 0.65, "d": 0.45, "potencia": 1.0}, {"rho": 0.65, "d": 0.5, "potencia": 1.0}, {"rho": 0.7, "d": 0.2, "potencia": 0.7997}, {"rho": 0.7, "d": 0.25, "potencia": 0.9323}, {"rho": 0.7, "d": 0.3, "potencia": 0.988}, {"rho": 0.7, "d": 0.35, "potencia": 0.9973}, {"rho": 0.7, "d": 0.4, "potencia": 0.9997}, {"rho": 0.7, "d": 0.45, "potencia": 1.0}, {"rho": 0.7, "d": 0.5, "potencia": 1.0}], "robustez": [{"escenario": "base", "potencia_empirica": 0.8317}, {"escenario": "outliers_5pct", "potencia_empirica": 0.7077}, {"escenario": "heterocedastico", "potencia_empirica": 0.62}, {"escenario": "attrition_historica", "potencia_empirica": 0.7993}]};
+
+const VAR_LABELS = {
+  fluidez: "Fluidez", originalidad: "Originalidad", elaboracion: "Elaboración",
+  abstraccion_titulos: "Abstracción de títulos", resistencia_cierre: "Resistencia al cierre",
+  pssm_global: "PSSM (global)"
+};
+const ESCENARIO_LABELS = {
+  base: "Base", outliers_5pct: "5% outliers", heterocedastico: "Heterocedástico",
+  attrition_historica: "Attrition histórica (10.7%)"
+};
+
+// Cronograma real del semestre (2.1.1, 2.3.1.2, Tabla 8): filas del diagrama de Gantt.
+// start/end en semanas del semestre (1-18). Los hitos (T1/T2/T3/S18) se dibujan como
+// barras cortas para que sean visibles en la misma escala que las fases de 7 semanas.
+const GANTT_ROWS = [
+  { label: "T1 · Línea de base", start: 1, end: 1.6, type: "milestone",
+    detail: "TTCT forma inicial + PSSM + rendimiento previo",
+    link: "#sec-tablas", linkLabel: "Tablas de detalle → Supuestos" },
+  { label: "Periodo 1 · Secuencia AB (Condición A)", start: 2, end: 8, type: "phaseA",
+    detail: "MPI-DUAE, 7 sesiones de 90 min",
+    link: "#sec-diagrama", linkLabel: "Diagrama interactivo del crossover" },
+  { label: "Periodo 1 · Secuencia BA (Condición B)", start: 2, end: 8, type: "phaseB",
+    detail: "Comparación, 7 sesiones de 90 min",
+    link: "#sec-diagrama", linkLabel: "Diagrama interactivo del crossover" },
+  { label: "T2 · Medición intermedia", start: 9, end: 9.6, type: "milestone",
+    detail: "Cierre del Periodo 1 — control de atrición temprana",
+    link: "#sec-power", linkLabel: "Curva de potencia vs. N" },
+  { label: "Periodo 2 · Secuencia AB (Condición B)", start: 10, end: 16, type: "phaseB",
+    detail: "Comparación, 7 sesiones de 90 min",
+    link: "#sec-diagrama", linkLabel: "Diagrama interactivo del crossover" },
+  { label: "Periodo 2 · Secuencia BA (Condición A)", start: 10, end: 16, type: "phaseA",
+    detail: "MPI-DUAE, 7 sesiones de 90 min",
+    link: "#sec-diagrama", linkLabel: "Diagrama interactivo del crossover" },
+  { label: "T3 · Medición final", start: 17, end: 17.6, type: "milestone",
+    detail: "Cierre del Periodo 2 — contraste principal HE1/HE2",
+    link: "#sec-efectos", linkLabel: "Tamaños de efecto" },
+  { label: "S18 · Registro de permanencia", start: 18, end: 18.6, type: "perm",
+    detail: "Retiro formal, registro institucional IESP DYC",
+    link: "#sec-tablas", linkLabel: "Tablas de detalle → HE3" },
+];
+const GANTT_COLORS = {
+  phaseA: { fill: "#3b528bcc", border: "#2d3f6b" },
+  phaseB: { fill: "#5dc963cc", border: "#3b8f45" },
+  milestone: { fill: "#1a1a2ecc", border: "#000000" },
+  perm: { fill: "#c44e52cc", border: "#8f3336" },
+};
+const VIRIDIS = ["#440154","#3b528b","#21908c","#5dc963","#fde725"];
+
+function lerpColor(a, b, t){
+  const c1 = a.match(/\w\w/g).map(x=>parseInt(x,16));
+  const c2 = b.match(/\w\w/g).map(x=>parseInt(x,16));
+  const c = c1.map((v,i)=>Math.round(v+(c2[i]-v)*t));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+function viridis(t){
+  t = Math.min(1, Math.max(0, t));
+  const n = VIRIDIS.length - 1;
+  const seg = Math.min(n-1, Math.floor(t*n));
+  const localT = t*n - seg;
+  return lerpColor(VIRIDIS[seg], VIRIDIS[seg+1], localT);
+}
+function textColorFor(bgHexOrRgb){
+  const m = bgHexOrRgb.match(/\d+/g).map(Number);
+  const lum = (0.299*m[0] + 0.587*m[1] + 0.114*m[2]) / 255;
+  return lum > 0.55 ? "#1a1a2e" : "#ffffff";
+}
+function fmtPct(v){ return (v*100).toFixed(1) + "%"; }
+function fmtP(v){ return v < 0.001 ? "< .001" : v.toFixed(3).replace(/^0/, ""); }
+
+class Dashboard {
+  constructor(data){
+    this.data = data;
+    this.sigOnly = false;
+    this.highlight = "all";
+    this.charts = {};
+    this.init();
+  }
+
+  init(){
+    this.populateVarFilter();
+    this.renderKPIs();
+    this.renderGanttChart();
+    this.renderPowerChart();
+    this.renderEffectsChart();
+    this.renderMeansChart();
+    this.renderRobustnessChart();
+    this.renderHeatmap();
+    this.renderTables();
+    this.setupTabs();
+  }
+
+  populateVarFilter(){
+    const sel = document.getElementById("filter-var");
+    Object.keys(VAR_LABELS).forEach(v=>{
+      const opt = document.createElement("option");
+      opt.value = v; opt.textContent = VAR_LABELS[v];
+      sel.appendChild(opt);
+    });
+  }
+
+  renderKPIs(){
+    const potN120 = this.data.potencia_n.find(r=>r.N===120).potencia;
+    const nSig = this.data.efectos.filter(e=>e["significativo_bonferroni_.01"]).length;
+    const kpis = [
+      {label:"N principal", value:"120", note:"de 145 plazas totales"},
+      {label:"ρ (correlación repetida)", value:"0.50", note:"medido a priori, G*Power 3.1"},
+      {label:"d de Cohen esperado", value:"0.30", note:"EMD reportado: 0.22–0.31"},
+      {label:"α / Bonferroni HE1a-e", value:"0.05 / 0.01", note:"potencia objetivo 0.80"},
+      {label:"Potencia empírica (N=120)", value:fmtPct(potN120), note:"B = 10 000 iteraciones", cls: potN120>=0.8?"positive":"negative"},
+      {label:"Dimensiones significativas", value:`${nSig} / 6`, note:"Bonferroni α/5 = .01"},
+    ];
+    document.getElementById("kpi-row").innerHTML = kpis.map(k=>`
+      <div class="kpi-card">
+        <div class="kpi-label">${k.label}</div>
+        <div class="kpi-value">${k.value}</div>
+        <div class="kpi-note ${k.cls||''}">${k.note}</div>
+      </div>`).join("");
+  }
+
+  renderGanttChart(){
+    const rows = GANTT_ROWS;
+    const ctx = document.getElementById("chart-gantt").getContext("2d");
+    this.charts.gantt = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: rows.map(r => r.label),
+        datasets: [{
+          label: "Actividad",
+          data: rows.map(r => [r.start, r.end]),
+          backgroundColor: rows.map(r => GANTT_COLORS[r.type].fill),
+          borderColor: rows.map(r => GANTT_COLORS[r.type].border),
+          borderWidth: 1,
+          borderRadius: 5,
+          barPercentage: 0.55,
+        }],
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        onClick: (evt, elements) => {
+          if (elements.length) window.location.hash = rows[elements[0].index].link;
+        },
+        onHover: (evt, elements) => {
+          evt.native.target.style.cursor = elements.length ? "pointer" : "default";
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              title: (items) => rows[items[0].dataIndex].label,
+              label: (item) => {
+                const r = rows[item.dataIndex];
+                const dur = r.end - r.start;
+                const wk = dur <= 1 ? `Semana ${r.start}` : `Semanas ${r.start}–${r.end}`;
+                return [wk, r.detail, `Clic → ${r.linkLabel}`];
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            min: 0.5, max: 18.9,
+            title: { display: true, text: "Semana del semestre (2026-2027)" },
+            ticks: { stepSize: 1 },
+            grid: { color: "#eef0f2" },
+          },
+          y: { grid: { display: false }, ticks: { font: { size: 10.5 } } },
+        },
+      },
+    });
+  }
+
+  renderPowerChart(){
+    const rows = this.data.potencia_n;
+    const idx120 = rows.findIndex(r=>r.N===120);
+    const ctx = document.getElementById("chart-power").getContext("2d");
+    this.charts.power = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: rows.map(r=>r.N),
+        datasets: [
+          {
+            label: "Potencia empírica",
+            data: rows.map(r=>r.potencia),
+            borderColor: "#3b528b",
+            backgroundColor: "#3b528b22",
+            borderWidth: 2.5,
+            fill: true,
+            tension: 0.25,
+            pointRadius: rows.map((r,i)=> i===idx120 ? 7 : 3),
+            pointBackgroundColor: rows.map((r,i)=> i===idx120 ? "#c44e52" : "#3b528b"),
+            pointHoverRadius: 8,
+          },
+          {
+            label: "Potencia objetivo (0.80)",
+            data: rows.map(()=>0.80),
+            borderColor: "#9aa0a6",
+            borderDash: [6,4],
+            borderWidth: 1.5,
+            pointRadius: 0,
+            fill: false,
+          },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: {position:"bottom", labels:{usePointStyle:true, padding:14, font:{size:11}}},
+          tooltip: {callbacks:{label:(c)=> `${c.dataset.label}: ${fmtPct(c.parsed.y)}`}} },
+        scales: {
+          x: { title:{display:true, text:"N (casos completos)"}, grid:{display:false} },
+          y: { min:0.5, max:1, title:{display:true, text:"Potencia empírica"},
+               ticks:{callback:(v)=>fmtPct(v)} },
+        },
+      },
+    });
+  }
+
+  renderEffectsChart(){
+    const rows = this.data.efectos;
+    const ctx = document.getElementById("chart-effects").getContext("2d");
+    this.charts.effects = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: rows.map(r=>VAR_LABELS[r.variable]),
+        datasets: [{
+          label: "d_z de Cohen",
+          data: rows.map(r=>r.dz),
+          backgroundColor: rows.map(r=> r["significativo_bonferroni_.01"] ? "#5dc963cc" : "#9aa0a688"),
+          borderColor: rows.map(r=> r["significativo_bonferroni_.01"] ? "#3b8f45" : "#7a8086"),
+          borderWidth: 1,
+          borderRadius: 4,
+        }],
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: {display:false},
+          tooltip: {callbacks:{
+            label: (c)=>{
+              const r = rows[c.dataIndex];
+              return [`d_z = ${r.dz.toFixed(3)}`, `IC 95% [${r.ic95_lo.toFixed(3)}, ${r.ic95_hi.toFixed(3)}]`, `p ${fmtP(r.p)}`];
+            }
+          }},
+        },
+        scales: {
+          x: { min:0, max:0.6, title:{display:true, text:"d_z de Cohen"} },
+          y: { grid:{display:false} },
+        },
+      },
+    });
+  }
+
+  renderMeansChart(){
+    const vars = Object.keys(VAR_LABELS);
+    const byVar = v => this.data.descriptivos.filter(d=>d.variable===v);
+    const ctx = document.getElementById("chart-means").getContext("2d");
+    this.charts.means = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: vars.map(v=>VAR_LABELS[v]),
+        datasets: [
+          { label:"A · MPI-DUAE", data: vars.map(v=>byVar(v).find(r=>r.condicion==="A").media),
+            backgroundColor:"#3b528bcc", borderRadius:4 },
+          { label:"B · Comparación", data: vars.map(v=>byVar(v).find(r=>r.condicion==="B").media),
+            backgroundColor:"#5dc963cc", borderRadius:4 },
+        ],
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins: {
+          legend: {position:"bottom", labels:{usePointStyle:true, padding:14, font:{size:11}}},
+          tooltip: {callbacks:{label:(c)=>{
+            const v = vars[c.dataIndex];
+            const cond = c.datasetIndex===0 ? "A" : "B";
+            const row = byVar(v).find(r=>r.condicion===cond);
+            return `${c.dataset.label}: media=${row.media.toFixed(3)}, DE=${row.de.toFixed(3)}`;
+          }}},
+        },
+        scales: { x:{grid:{display:false}, ticks:{maxRotation:20, minRotation:0, font:{size:10.5}}},
+                  y:{title:{display:true, text:"Puntaje estandarizado (z)"}} },
+      },
+    });
+  }
+
+  renderRobustnessChart(){
+    const rows = this.data.robustez;
+    const ctx = document.getElementById("chart-robustness").getContext("2d");
+    this.charts.robustness = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: rows.map(r=>ESCENARIO_LABELS[r.escenario]),
+        datasets: [{
+          label: "Potencia empírica",
+          data: rows.map(r=>r.potencia_empirica),
+          backgroundColor: rows.map(r=> r.escenario==="base" ? "#21908ccc" : "#c44e5299"),
+          borderRadius: 4,
+        }],
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins: { legend:{display:false},
+          tooltip:{callbacks:{label:(c)=>`Potencia: ${fmtPct(c.parsed.y)}`}} },
+        scales: { x:{grid:{display:false}}, y:{min:0, max:1, ticks:{callback:(v)=>fmtPct(v)},
+                  title:{display:true, text:"Potencia empírica"}} },
+      },
+    });
+  }
+
+  renderHeatmap(){
+    const rows = this.data.sensibilidad;
+    const rhos = [...new Set(rows.map(r=>r.rho))].sort((a,b)=>a-b);
+    const ds = [...new Set(rows.map(r=>r.d))].sort((a,b)=>b-a); // d descendente, como la figura e)
+    const byRhoD = (rho,d) => rows.find(r=>r.rho===rho && r.d===d).potencia;
+
+    let html = "<thead><tr><th></th>" + rhos.map(r=>`<th>ρ=${r.toFixed(2)}</th>`).join("") + "</tr></thead><tbody>";
+    ds.forEach(d=>{
+      html += `<tr><th>d=${d.toFixed(2)}</th>`;
+      rhos.forEach(rho=>{
+        const v = byRhoD(rho, d);
+        const bg = viridis(v);
+        const isTesis = Math.abs(rho-0.5)<1e-9 && Math.abs(d-0.30)<1e-9;
+        html += `<td class="${isTesis?'star':''}" style="background:${bg};color:${textColorFor(bg)};" title="ρ=${rho}, d=${d}: potencia=${fmtPct(v)}${isTesis?' ★ valor de la tesis':''}">${v.toFixed(2)}</td>`;
+      });
+      html += "</tr>";
+    });
+    html += "</tbody>";
+    document.getElementById("heatmap").innerHTML = html;
+  }
+
+  renderTables(){
+    // Tamaños de efecto
+    const efHtml = this.buildSortableTable(
+      this.data.efectos.filter(r=> !this.sigOnly || r["significativo_bonferroni_.01"]),
+      [
+        {field:"variable", label:"Variable", fmt:(v)=>VAR_LABELS[v]},
+        {field:"dz", label:"d_z", fmt:(v)=>v.toFixed(3)},
+        {field:"ic95_lo", label:"IC95 inf.", fmt:(v)=>v.toFixed(3)},
+        {field:"ic95_hi", label:"IC95 sup.", fmt:(v)=>v.toFixed(3)},
+        {field:"p", label:"p", fmt:(v)=>fmtP(v)},
+        {field:"significativo_bonferroni_.01", label:"Sig. Bonferroni", fmt:(v)=> v? '<span class="badge sig">Sí</span>' : '<span class="badge nosig">No</span>'},
+      ], "table-efectos", "efectos"
+    );
+
+    // Descriptivos
+    this.buildSortableTable(this.data.descriptivos, [
+      {field:"variable", label:"Variable", fmt:(v)=>VAR_LABELS[v]},
+      {field:"condicion", label:"Condición"},
+      {field:"n", label:"n"},
+      {field:"media", label:"Media", fmt:(v)=>v.toFixed(3)},
+      {field:"de", label:"DE", fmt:(v)=>v.toFixed(3)},
+      {field:"mediana", label:"Mediana", fmt:(v)=>v.toFixed(3)},
+      {field:"ric", label:"RIC", fmt:(v)=>v.toFixed(3)},
+      {field:"asimetria", label:"Asimetría", fmt:(v)=>v.toFixed(3)},
+      {field:"curtosis", label:"Curtosis", fmt:(v)=>v.toFixed(3)},
+    ], "table-desc", "descriptivos");
+
+    // Supuestos
+    this.buildSortableTable(this.data.supuestos, [
+      {field:"variable", label:"Variable", fmt:(v)=>VAR_LABELS[v]},
+      {field:"shapiro_p_A", label:"Shapiro p (A)", fmt:(v)=>fmtP(v)},
+      {field:"shapiro_p_B", label:"Shapiro p (B)", fmt:(v)=>fmtP(v)},
+      {field:"levene_F", label:"Levene F", fmt:(v)=>v.toFixed(3)},
+      {field:"levene_p", label:"Levene p", fmt:(v)=>fmtP(v)},
+    ], "table-supuestos", "supuestos");
+
+    // HE3
+    this.buildSortableTable(this.data.he3, [
+      {field:"termino", label:"Término"},
+      {field:"OR", label:"OR", fmt:(v)=>v.toFixed(3)},
+      {field:"IC95_lo", label:"IC95 inf.", fmt:(v)=>v.toFixed(3)},
+      {field:"IC95_hi", label:"IC95 sup.", fmt:(v)=>v.toFixed(3)},
+      {field:"p", label:"p", fmt:(v)=>fmtP(v)},
+    ], "table-he3", "he3");
+  }
+
+  buildSortableTable(rows, columns, containerId, key){
+    const container = document.getElementById(containerId);
+    let sortCol = null, sortDir = "desc";
+
+    const render = (data) => {
+      let html = '<table class="data-table"><thead><tr>';
+      columns.forEach(col=>{
+        const arrow = sortCol===col.field ? (sortDir==="asc" ? " ▲" : " ▼") : "";
+        html += `<th data-field="${col.field}">${col.label}${arrow}</th>`;
+      });
+      html += "</tr></thead><tbody>";
+      data.forEach(row=>{
+        html += "<tr>";
+        columns.forEach(col=>{
+          const raw = row[col.field];
+          html += `<td>${col.fmt ? col.fmt(raw) : raw}</td>`;
+        });
+        html += "</tr>";
+      });
+      html += "</tbody></table>";
+      container.innerHTML = html;
+      container.querySelectorAll("th").forEach(th=>{
+        th.addEventListener("click", ()=>{
+          const field = th.dataset.field;
+          sortDir = (sortCol===field && sortDir==="asc") ? "desc" : "asc";
+          sortCol = field;
+          const sorted = [...data].sort((a,b)=>{
+            const av=a[field], bv=b[field];
+            const cmp = av<bv ? -1 : av>bv ? 1 : 0;
+            return sortDir==="asc" ? cmp : -cmp;
+          });
+          render(sorted);
+        });
+      });
+    };
+    render(rows);
+  }
+
+  setupTabs(){
+    document.querySelectorAll(".tab-btn").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+        document.querySelectorAll(".tab-panel").forEach(p=>p.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById(btn.dataset.tab).classList.add("active");
+      });
+    });
+  }
+
+  toggleSigOnly(checked){
+    this.sigOnly = checked;
+    this.renderTables();
+  }
+
+  setHighlight(variable){
+    this.highlight = variable;
+    const rows = this.data.efectos;
+    this.charts.effects.data.datasets[0].backgroundColor = rows.map(r=>{
+      const base = r["significativo_bonferroni_.01"] ? "#5dc963" : "#9aa0a6";
+      const alpha = (variable==="all" || r.variable===variable) ? "cc" : "33";
+      return base+alpha;
+    });
+    this.charts.effects.update();
+
+    this.charts.means.data.datasets.forEach(ds=>{
+      const vars = Object.keys(VAR_LABELS);
+      ds.backgroundColor = vars.map(v=>{
+        const alpha = (variable==="all" || v===variable) ? "cc" : "33";
+        return (ds.label.startsWith("A") ? "#3b528b" : "#5dc963") + alpha;
+      });
+    });
+    this.charts.means.update();
+  }
+}
+
+const dash = new Dashboard(DATA);
+</script>
+</body>
+</html>

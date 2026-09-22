@@ -1,0 +1,7 @@
+variable,dz,ic95_lo,ic95_hi,p,significativo_bonferroni_.01
+fluidez,0.169,-0.011,0.350,0.066,False
+originalidad,0.186,0.006,0.367,0.044,False
+elaboracion,0.356,0.171,0.540,0.000,True
+abstraccion_titulos,0.269,0.087,0.451,0.004,True
+resistencia_cierre,0.357,0.173,0.542,0.000,True
+pssm_global,0.217,0.036,0.398,0.019,True

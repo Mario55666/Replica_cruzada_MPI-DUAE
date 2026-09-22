@@ -1,0 +1,4 @@
+Efecto minimo detectable teorico con N=120, rho=0.5, alpha=0.05, potencia=0.8: d = 0.256
+(la tesis reporta un rango de 0.22 a 0.31 con G*Power 3.1; el valor puntual aqui depende del extremo exacto de la aproximacion normal vs. t usada por G*Power).
+
+Potencia empirica por simulacion Monte Carlo (B=10000) para d=0.3, N=120, rho=0.5: 0.9067

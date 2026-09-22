@@ -1,0 +1,7 @@
+,coef,OR,IC95_lo,IC95_hi,p
+Intercept,1.7096,5.5270,1.4164,21.5670,0.0139
+C(programa)[T.Diseno Publicitario],1.0399,2.8291,0.4680,17.1018,0.2573
+C(programa)[T.Diseno de Interiores],0.6487,1.9130,0.3487,10.4939,0.4551
+C(programa)[T.Diseno de Modas],-0.1461,0.8641,0.1471,5.0741,0.8715
+pssm_prom,1.1662,3.2098,1.5913,6.4744,0.0011
+rendimiento_previo,0.1757,1.1921,0.6354,2.2363,0.5841

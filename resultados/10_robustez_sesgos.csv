@@ -1,0 +1,5 @@
+escenario,potencia_empirica
+base,0.8317
+outliers_5pct,0.7077
+heterocedastico,0.6200
+attrition_historica,0.7993

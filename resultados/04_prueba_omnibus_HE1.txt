@@ -1,0 +1,4 @@
+HE1 (omnibus, Hotelling T2 pareada, 5 dimensiones TTCT):
+F(5, 115) = 8.836, p = 0.0000
+
+HE2 (PSSM, t pareada): t = 2.373, p = 0.0193, dz = 0.217 [0.036, 0.398]
